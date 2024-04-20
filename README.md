@@ -3,8 +3,8 @@ Using ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition to realize speec
 
 
 ## 1. Introduction
-This project is based on the [ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition]( 
-    https://huggingface.co/ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition)
+This project is based on the [xmj2002/hubert-base-ch-speech-emotion-recognition]( 
+    https://huggingface.co/xmj2002/hubert-base-ch-speech-emotion-recognition)
 
 ## 2. Installation
 ```bash
@@ -25,10 +25,8 @@ python audio_transfer.py
 
 ## 4.Emotion List
 - neutral
-- calm
 - happy
-- sad
-- angry
-- disgust
+- anger
+- fear
 - surprised
-- fearful
+- sad
