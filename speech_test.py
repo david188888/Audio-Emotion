@@ -1,48 +1,85 @@
+import librosa
 import torch
-from transformers import AutoModelForAudioClassification, Wav2Vec2FeatureExtractor, AutoConfig
 import torch.nn as nn
-import torchaudio
 import torch.nn.functional as F
-import os
+from transformers import AutoConfig, Wav2Vec2FeatureExtractor, HubertPreTrainedModel, HubertModel
+
+model_name_or_path = "xmj2002/hubert-base-ch-speech-emotion-recognition"
+duration = 6
+sample_rate = 16000
+
+config = AutoConfig.from_pretrained(
+    pretrained_model_name_or_path=model_name_or_path,
+)
 
 
+def id2class(id):
+    if id == 0:
+        return "angry"
+    elif id == 1:
+        return "fear"
+    elif id == 2:
+        return "happy"
+    elif id == 3:
+        return "neutral"
+    elif id == 4:
+        return "sad"
+    else:
+        return "surprise"
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-model_dic = './model'
-path = './data/55114876.wav'
-config = AutoConfig.from_pretrained(model_dic)
-feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(model_dic)
-sampling_rate = feature_extractor.sampling_rate
-print(f"the sampling rate is: {sampling_rate}")
-model = AutoModelForAudioClassification.from_pretrained(model_dic).to(device)
-print('Model loaded')
-# print(f"the details of the model are: {model.config}")
 
-
-# preprocess the audio file
-def speech_file_to_array_fn(path, sampling_rate):
-    speech_array, sampling_rate = torchaudio.load(path)
-    resampler = torchaudio.transforms.Resample(sampling_rate)
-    speech = resampler(speech_array).squeeze().numpy()
-    return speech
-
-def predict(path, sampling_rate):
-    speech = speech_file_to_array_fn(path, sampling_rate)
-    inputs = feature_extractor(speech, sampling_rate=sampling_rate, return_tensors="pt", padding=True)
-    inputs = {key: inputs[key].to(device) for key in inputs}
-
+def predict(path, processor, model):
+    speech, sr = librosa.load(path=path, sr=sample_rate)
+    speech = processor(speech, padding="max_length", truncation=True, max_length=duration * sr,
+                       return_tensors="pt", sampling_rate=sr).input_values
     with torch.no_grad():
-        logits = model(**inputs).logits
+        logit = model(speech)
+    score = F.softmax(logit, dim=1).detach().cpu().numpy()[0]
+    id = torch.argmax(logit).cpu().numpy()
+    print(f"file path: {path} \t predict: {id2class(id)} \t score:{score[id]} ")
 
-    scores = F.softmax(logits, dim=1).detach().cpu().numpy()[0]
-    outputs = [{"Emotion": config.id2label[i], "Score": f"{round(score * 100, 3):.1f}%"} for i, score in enumerate(scores)]
-    return outputs
+
+class HubertClassificationHead(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dropout = nn.Dropout(config.classifier_dropout)
+        self.out_proj = nn.Linear(config.hidden_size, config.num_class)
+
+    def forward(self, x):
+        x = self.dense(x)
+        x = torch.tanh(x)
+        x = self.dropout(x)
+        x = self.out_proj(x)
+        return x
 
 
-if __name__ == '__main__':
-    result_list = predict(path, sampling_rate)
-    # put out the max score result
-    for result in result_list:
-        if result['Score'] == max([result['Score'] for result in result_list]):
-            print(result)
-            break
+class HubertForSpeechClassification(HubertPreTrainedModel):
+    def __init__(self, config):
+        super().__init__(config)
+        self.hubert = HubertModel(config)
+        self.classifier = HubertClassificationHead(config)
+        self.init_weights()
+
+    def forward(self, x):
+        outputs = self.hubert(x)
+        hidden_states = outputs[0]
+        x = torch.mean(hidden_states, dim=1)
+        x = self.classifier(x)
+        return x
+
+
+processor = Wav2Vec2FeatureExtractor.from_pretrained(model_name_or_path)
+# model = HubertForSpeechClassification.from_pretrained(
+#     model_name_or_path,
+#     config=config,
+# )
+
+# model.save_pretrained("model")
+model = HubertForSpeechClassification.from_pretrained("model")
+model.eval()
+
+# print(f"detail of model: {model}")
+
+path = 'data/111.wav'
+predict(path, processor, model)
