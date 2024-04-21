@@ -1,5 +1,5 @@
 {
-  "_name_or_path": "xmj2002/hubert-base-ch-speech-emotion-recognition",
+  "_name_or_path": "TencentGameMate/chinese-hubert-base",
   "activation_dropout": 0.1,
   "apply_spec_augment": true,
   "architectures": [
@@ -68,7 +68,7 @@
   "num_hidden_layers": 12,
   "pad_token_id": 0,
   "torch_dtype": "float32",
-  "transformers_version": "4.39.3",
+  "transformers_version": "4.24.0",
   "use_weighted_layer_sum": false,
   "vocab_size": 32
 }
