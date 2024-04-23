@@ -104,6 +104,8 @@ async def transcribe_audio(file: UploadFile = File()):
     new_filename = base_filename + "_result.txt"
     with open(new_filename, "w") as f:
         f.write(str(result))
+        
+    return result
     
     
 if __name__ == '__main__':
